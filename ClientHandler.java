@@ -8,7 +8,7 @@ import java.nio.file.Files;
 
 public class ClientHandler implements Runnable {
     private static final int PACKET_SIZE = 4096;
-    private static final int TIMEOUT_MS = 3000; // Esperar 3s por ACK
+    private static final int TIMEOUT_MS = 3000; // Esperar 3 segundos por ACK
 
     private DatagramSocket socket;
     private File file;
@@ -24,19 +24,19 @@ public class ClientHandler implements Runnable {
     public void run() {
         try {
             // 1) Leer todo el archivo (para simplificar la demo).
-            // Para archivos gigantes, se recomienda un bucle de lectura parcial.
+            // Para archivos gigantes, se recomienda leer por partes.
             byte[] fileData = Files.readAllBytes(file.toPath());
             int totalPackets = (int) Math.ceil((double) fileData.length / PACKET_SIZE);
 
-            // 2) Esperar que el cliente nos envíe un "HELLO" (o algo) para obtener su puerto
-            socket.setSoTimeout(5000); // 5s para que el cliente nos mande HELLO
+            // 2) Esperar que el cliente envíe un "HELLO" para obtener su puerto
+            socket.setSoTimeout(5000); // 5 segundos para recibir HELLO
             byte[] helloBuffer = new byte[100];
             DatagramPacket helloPacket = new DatagramPacket(helloBuffer, helloBuffer.length);
             socket.receive(helloPacket);
 
             String helloMsg = new String(helloPacket.getData(), 0, helloPacket.getLength()).trim();
             if (!helloMsg.startsWith("HELLO")) {
-                System.out.println("⚠️ No se recibió HELLO, sino: " + helloMsg);
+                System.out.println("⚠️ No se recibió HELLO, se recibió: " + helloMsg);
                 return;
             }
             int clientPort = helloPacket.getPort();
@@ -51,18 +51,18 @@ public class ClientHandler implements Runnable {
             socket.send(totalCountPacket);
             System.out.println("📤 Enviando total de paquetes: " + totalPackets);
 
-            // 4) Enviar cada fragmento con "stop-and-wait" (esperar ACK antes de siguiente)
+            // 4) Enviar cada fragmento usando stop-and-wait (esperar ACK antes de enviar el siguiente)
             int offset = 0;
             int packetNumber = 0;
 
             while (offset < fileData.length) {
                 int length = Math.min(PACKET_SIZE, fileData.length - offset);
 
-                // Cabecera textual: "00000|"
-                String header = String.format("%05d|", packetNumber);
+                // Generar cabecera de longitud variable: "númeroDePaquete|"
+                String header = packetNumber + "|";
                 byte[] headerBytes = header.getBytes();
 
-                // Combinar cabecera + bytes del archivo
+                // Combinar cabecera y datos del archivo
                 byte[] packetData = new byte[headerBytes.length + length];
                 System.arraycopy(headerBytes, 0, packetData, 0, headerBytes.length);
                 System.arraycopy(fileData, offset, packetData, headerBytes.length, length);
@@ -86,17 +86,16 @@ public class ClientHandler implements Runnable {
                     if (!ackResponse.equals("ACK-" + packetNumber)) {
                         System.out.println("⚠️ ACK incorrecto: " + ackResponse
                                            + " (se reenvía fragmento #" + packetNumber + ")");
-                        // No avanzamos offset ni packetNumber
+                        // Reintenta el envío del mismo fragmento
                         continue;
                     }
                 } catch (SocketTimeoutException e) {
                     System.out.println("⌛ Timeout esperando ACK del fragmento #" + packetNumber
                                        + ", reintentando...");
-                    // Reenviar el mismo fragmento en la siguiente iteración
                     continue;
                 }
 
-                // Si ACK es correcto, avanzamos al siguiente fragmento
+                // Si se recibe el ACK correcto, avanzar al siguiente fragmento
                 offset += length;
                 packetNumber++;
             }
@@ -111,7 +110,7 @@ public class ClientHandler implements Runnable {
         } catch (IOException e) {
             e.printStackTrace();
         } finally {
-            // Cerrar el socket efímero al terminar con este cliente
+            // Cerrar el socket efímero al finalizar
             socket.close();
         }
     }

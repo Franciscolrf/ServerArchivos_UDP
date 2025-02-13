@@ -10,7 +10,7 @@ import java.util.HashMap;
 
 public class UDPFileClient {
     private static final int SERVER_PORT = 5005;
-    private static final int CLIENT_PORT = 6000; // o 0 si quieres un efímero en cliente
+    private static final int CLIENT_PORT = 6000; // o 0 si quieres un puerto efímero en el cliente
     private static final int BUFFER_SIZE = 4096;
 
     public static void main(String[] args) {
@@ -67,46 +67,53 @@ public class UDPFileClient {
             System.out.println("📥 Total de fragmentos a recibir: " + totalPackets);
 
             // 6) Recibir fragmentos y enviar ACK
+            // Se aumenta el tamaño del buffer para asegurar que la cabecera variable quepa
             HashMap<Integer, byte[]> fragmentBuffer = new HashMap<>();
 
             while (true) {
-                byte[] recvBuf = new byte[BUFFER_SIZE + 10]; // cabecera + datos
+                byte[] recvBuf = new byte[BUFFER_SIZE + 20]; // buffer para cabecera + datos
                 DatagramPacket fragmentPacket = new DatagramPacket(recvBuf, recvBuf.length);
                 clientSocket.receive(fragmentPacket);
 
                 int length = fragmentPacket.getLength();
                 byte[] packetData = fragmentPacket.getData();
 
-                // ¿Es "END"?
+                // Verificar si es "END"
                 String possibleEnd = new String(packetData, 0, length).trim();
                 if (possibleEnd.equals("END")) {
                     System.out.println("📥 Fin de la transmisión recibido.");
                     break;
                 }
 
-                // Parsear cabecera "00000|"
-                if (length < 6) {
-                    System.out.println("⚠️ Paquete demasiado pequeño, se ignora.");
+                // Buscar el delimitador '|' para separar la cabecera
+                int sepIndex = -1;
+                for (int i = 0; i < length; i++) {
+                    if (packetData[i] == '|') {
+                        sepIndex = i;
+                        break;
+                    }
+                }
+                if (sepIndex == -1) {
+                    System.out.println("⚠️ Cabecera inválida, se ignora este fragmento.");
                     continue;
                 }
-                byte[] headerBytes = new byte[6];
-                System.arraycopy(packetData, 0, headerBytes, 0, 6);
 
-                String header = new String(headerBytes);
-                int sepIndex = header.indexOf('|');
-                if (sepIndex < 0) {
-                    System.out.println("⚠️ Cabecera inválida, se ignora.");
+                // Extraer el número de fragmento (la cabecera)
+                String fragmentNumberStr = new String(packetData, 0, sepIndex);
+                int fragmentNumber;
+                try {
+                    fragmentNumber = Integer.parseInt(fragmentNumberStr);
+                } catch (NumberFormatException e) {
+                    System.out.println("⚠️ Número de fragmento inválido: " + fragmentNumberStr);
                     continue;
                 }
 
-                int fragmentNumber = Integer.parseInt(header.substring(0, sepIndex));
-
-                // Extraer los datos binarios
-                int dataSize = length - 6;
+                // Extraer los datos del fragmento (lo que sigue después del delimitador)
+                int dataSize = length - (sepIndex + 1);
                 byte[] fileData = new byte[dataSize];
-                System.arraycopy(packetData, 6, fileData, 0, dataSize);
+                System.arraycopy(packetData, sepIndex + 1, fileData, 0, dataSize);
 
-                // Almacenar en el buffer (HashMap) para reensamblar en orden
+                // Almacenar en el buffer para reensamblar en orden
                 fragmentBuffer.put(fragmentNumber, fileData);
                 System.out.println("📥 Recibido fragmento #" + fragmentNumber
                                    + " (" + dataSize + " bytes)");
