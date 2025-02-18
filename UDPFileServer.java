@@ -17,7 +17,7 @@ public class UDPFileServer {
             System.out.println("Servidor UDP escuchando en el puerto " + SERVER_PORT);
 
             while (true) {
-                // 1) Esperar solicitud (nombre de archivo) en el socket principal
+                // Esperar solicitud (nombre de archivo) en el socket principal
                 byte[] buffer = new byte[1024];
                 DatagramPacket requestPacket = new DatagramPacket(buffer, buffer.length);
                 mainSocket.receive(requestPacket);
@@ -26,10 +26,10 @@ public class UDPFileServer {
                 int clientPort = requestPacket.getPort();
 
                 String fileName = new String(requestPacket.getData(), 0, requestPacket.getLength()).trim();
-                System.out.println("📩 Solicitud de archivo '" + fileName + "' desde "
+                System.out.println(" Solicitud de archivo '" + fileName + "' desde "
                                    + clientAddress + ":" + clientPort);
 
-                // 2) Verificar si el archivo existe
+                // Verificar si el archivo existe
                 File file = new File(fileName);
                 if (!file.exists()) {
                     String errorMsg = "ERROR: Archivo no encontrado";
@@ -38,25 +38,25 @@ public class UDPFileServer {
                             clientAddress, clientPort
                     );
                     mainSocket.send(errorPacket);
-                    System.out.println("❌ Archivo no encontrado: " + fileName);
+                    System.out.println(" Archivo no encontrado: " + fileName);
                     continue; // Volver a esperar otra solicitud
                 }
 
-                // 3) Crear un socket en un puerto efímero para atender a este cliente
+                // Crear un socket en un puerto efímero para atender a este cliente
                 DatagramSocket ephemeralSocket = new DatagramSocket(0); // puerto aleatorio
                 int ephemeralPort = ephemeralSocket.getLocalPort();
 
-                // 4) Notificar al cliente el puerto efímero
+                // Notificar al cliente el puerto efímero
                 String portMsg = "PORT:" + ephemeralPort;
                 DatagramPacket portPacket = new DatagramPacket(
                         portMsg.getBytes(), portMsg.length(),
                         clientAddress, clientPort
                 );
                 mainSocket.send(portPacket);
-                System.out.println("✅ Archivo encontrado. Se usará el puerto " + ephemeralPort
+                System.out.println(" Archivo encontrado. Se usará el puerto " + ephemeralPort
                                    + " para la transferencia.");
 
-                // 5) Crear y lanzar el handler en un hilo aparte
+                // Crear y lanzar el handler en un hilo aparte
                 executor.execute(new ClientHandler(ephemeralSocket, file, clientAddress));
             }
 

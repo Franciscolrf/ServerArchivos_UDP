@@ -23,12 +23,12 @@ public class ClientHandler implements Runnable {
     @Override
     public void run() {
         try {
-            // 1) Leer todo el archivo (para simplificar la demo).
+            //  Leer todo el archivo (para simplificar la demo).
             // Para archivos gigantes, se recomienda leer por partes.
             byte[] fileData = Files.readAllBytes(file.toPath());
             int totalPackets = (int) Math.ceil((double) fileData.length / PACKET_SIZE);
 
-            // 2) Esperar que el cliente envíe un "HELLO" para obtener su puerto
+            // Esperar que el cliente envíe un "HELLO" para obtener su puerto
             socket.setSoTimeout(5000); // 5 segundos para recibir HELLO
             byte[] helloBuffer = new byte[100];
             DatagramPacket helloPacket = new DatagramPacket(helloBuffer, helloBuffer.length);
@@ -36,22 +36,22 @@ public class ClientHandler implements Runnable {
 
             String helloMsg = new String(helloPacket.getData(), 0, helloPacket.getLength()).trim();
             if (!helloMsg.startsWith("HELLO")) {
-                System.out.println("⚠️ No se recibió HELLO, se recibió: " + helloMsg);
+                System.out.println(" No se recibió HELLO, se recibió: " + helloMsg);
                 return;
             }
             int clientPort = helloPacket.getPort();
-            System.out.println("🤝 Recibido HELLO del cliente " + clientAddress + ":" + clientPort);
+            System.out.println(" Recibido HELLO del cliente " + clientAddress + ":" + clientPort);
 
-            // 3) Enviar la cantidad total de fragmentos
+            // Enviar la cantidad total de fragmentos
             String totalPacketsStr = String.valueOf(totalPackets);
             DatagramPacket totalCountPacket = new DatagramPacket(
                     totalPacketsStr.getBytes(), totalPacketsStr.length(),
                     clientAddress, clientPort
             );
             socket.send(totalCountPacket);
-            System.out.println("📤 Enviando total de paquetes: " + totalPackets);
+            System.out.println(" Enviando total de paquetes: " + totalPackets);
 
-            // 4) Enviar cada fragmento usando stop-and-wait (esperar ACK antes de enviar el siguiente)
+            // Enviar cada fragmento usando stop-and-wait (esperar ACK antes de enviar el siguiente)
             int offset = 0;
             int packetNumber = 0;
 
@@ -73,7 +73,7 @@ public class ClientHandler implements Runnable {
                         clientAddress, clientPort
                 );
                 socket.send(sendPacket);
-                System.out.println("📤 Enviado fragmento #" + packetNumber + " (" + length + " bytes)");
+                System.out.println(" Enviado fragmento #" + packetNumber + " (" + length + " bytes)");
 
                 // Esperar ACK
                 byte[] ackBuffer = new byte[20];
@@ -84,13 +84,13 @@ public class ClientHandler implements Runnable {
                     socket.receive(ackPacket);
                     String ackResponse = new String(ackPacket.getData(), 0, ackPacket.getLength()).trim();
                     if (!ackResponse.equals("ACK-" + packetNumber)) {
-                        System.out.println("⚠️ ACK incorrecto: " + ackResponse
+                        System.out.println(" ACK incorrecto: " + ackResponse
                                            + " (se reenvía fragmento #" + packetNumber + ")");
                         // Reintenta el envío del mismo fragmento
                         continue;
                     }
                 } catch (SocketTimeoutException e) {
-                    System.out.println("⌛ Timeout esperando ACK del fragmento #" + packetNumber
+                    System.out.println(" Timeout esperando ACK del fragmento #" + packetNumber
                                        + ", reintentando...");
                     continue;
                 }
@@ -100,12 +100,12 @@ public class ClientHandler implements Runnable {
                 packetNumber++;
             }
 
-            // 5) Enviar "END" para indicar fin de transmisión
+            // Enviar "END" para indicar fin de transmisión
             byte[] endBytes = "END".getBytes();
             DatagramPacket endPacket = new DatagramPacket(endBytes, endBytes.length,
                                                           clientAddress, clientPort);
             socket.send(endPacket);
-            System.out.println("✅ Transmisión completada para: " + file.getName());
+            System.out.println("Transmisión completada para: " + file.getName());
 
         } catch (IOException e) {
             e.printStackTrace();

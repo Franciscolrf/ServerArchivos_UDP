@@ -10,11 +10,10 @@ import java.util.HashMap;
 
 public class UDPFileClient {
     private static final int SERVER_PORT = 5005;
-    private static final int CLIENT_PORT = 6000; // o 0 si quieres un puerto efímero en el cliente
     private static final int BUFFER_SIZE = 4096;
 
     public static void main(String[] args) {
-        try (DatagramSocket clientSocket = new DatagramSocket(CLIENT_PORT)) {
+        try (DatagramSocket clientSocket = new DatagramSocket()) { 
             BufferedReader console = new BufferedReader(new InputStreamReader(System.in));
 
             System.out.print("Ingrese el nombre del archivo a descargar: ");
@@ -22,7 +21,7 @@ public class UDPFileClient {
 
             InetAddress serverAddr = InetAddress.getByName("127.0.0.1");
 
-            // 1) Solicitar archivo al puerto principal
+            //  Solicitar archivo al puerto principal
             byte[] requestData = fileName.getBytes();
             DatagramPacket requestPacket = new DatagramPacket(
                     requestData, requestData.length,
@@ -30,7 +29,7 @@ public class UDPFileClient {
             );
             clientSocket.send(requestPacket);
 
-            // 2) Recibir respuesta (puerto efímero o ERROR)
+            // Recibir respuesta (puerto efímero o ERROR)
             byte[] buffer = new byte[100];
             DatagramPacket portPacket = new DatagramPacket(buffer, buffer.length);
             clientSocket.receive(portPacket);
@@ -45,11 +44,11 @@ public class UDPFileClient {
                 return;
             }
 
-            // 3) Extraer el puerto efímero
+            // Extraer el puerto efímero
             int ephemeralPort = Integer.parseInt(portMsg.substring(5));
-            System.out.println("📡 Servidor indicó puerto efímero: " + ephemeralPort);
+            System.out.println("Servidor indicó puerto efímero: " + ephemeralPort);
 
-            // 4) Enviar "HELLO" al puerto efímero para que el servidor obtenga nuestro puerto
+            // Enviar "HELLO" al puerto efímero para que el servidor obtenga nuestro puerto
             String hello = "HELLO from client";
             DatagramPacket helloPacket = new DatagramPacket(
                     hello.getBytes(), hello.length(),
@@ -57,17 +56,16 @@ public class UDPFileClient {
             );
             clientSocket.send(helloPacket);
 
-            // 5) Recibir el número total de paquetes
+            // Recibir el número total de paquetes
             byte[] totBuf = new byte[20];
             DatagramPacket totPacket = new DatagramPacket(totBuf, totBuf.length);
             clientSocket.receive(totPacket);
 
             String totStr = new String(totPacket.getData(), 0, totPacket.getLength()).trim();
             int totalPackets = Integer.parseInt(totStr);
-            System.out.println("📥 Total de fragmentos a recibir: " + totalPackets);
+            System.out.println("Total de fragmentos a recibir: " + totalPackets);
 
-            // 6) Recibir fragmentos y enviar ACK
-            // Se aumenta el tamaño del buffer para asegurar que la cabecera variable quepa
+            // Recibir fragmentos y enviar ACK
             HashMap<Integer, byte[]> fragmentBuffer = new HashMap<>();
 
             while (true) {
@@ -81,7 +79,7 @@ public class UDPFileClient {
                 // Verificar si es "END"
                 String possibleEnd = new String(packetData, 0, length).trim();
                 if (possibleEnd.equals("END")) {
-                    System.out.println("📥 Fin de la transmisión recibido.");
+                    System.out.println("Fin de la transmisión recibido.");
                     break;
                 }
 
@@ -94,7 +92,7 @@ public class UDPFileClient {
                     }
                 }
                 if (sepIndex == -1) {
-                    System.out.println("⚠️ Cabecera inválida, se ignora este fragmento.");
+                    System.out.println("Cabecera inválida, se ignora este fragmento.");
                     continue;
                 }
 
@@ -104,7 +102,7 @@ public class UDPFileClient {
                 try {
                     fragmentNumber = Integer.parseInt(fragmentNumberStr);
                 } catch (NumberFormatException e) {
-                    System.out.println("⚠️ Número de fragmento inválido: " + fragmentNumberStr);
+                    System.out.println("Número de fragmento inválido: " + fragmentNumberStr);
                     continue;
                 }
 
@@ -115,8 +113,7 @@ public class UDPFileClient {
 
                 // Almacenar en el buffer para reensamblar en orden
                 fragmentBuffer.put(fragmentNumber, fileData);
-                System.out.println("📥 Recibido fragmento #" + fragmentNumber
-                                   + " (" + dataSize + " bytes)");
+                System.out.println("Recibido fragmento #" + fragmentNumber + " (" + dataSize + " bytes)");
 
                 // Enviar ACK
                 String ackMsg = "ACK-" + fragmentNumber;
@@ -128,7 +125,7 @@ public class UDPFileClient {
                 clientSocket.send(ackPacket);
             }
 
-            // 7) Reconstruir y guardar el archivo en disco
+            // Reconstruir y guardar el archivo en disco
             File outFile = new File("descarga_" + fileName);
             try (FileOutputStream fos = new FileOutputStream(outFile)) {
                 for (int i = 0; i < totalPackets; i++) {
@@ -136,13 +133,12 @@ public class UDPFileClient {
                     if (frag != null) {
                         fos.write(frag);
                     } else {
-                        System.out.println("⚠️ Falta el fragmento #" + i
-                                           + " (el archivo puede estar incompleto).");
+                        System.out.println("Falta el fragmento #" + i + " (el archivo puede estar incompleto).");
                     }
                 }
             }
 
-            System.out.println("✅ Archivo descargado exitosamente: " + outFile.getName());
+            System.out.println("Archivo descargado exitosamente: " + outFile.getName());
 
         } catch (IOException e) {
             e.printStackTrace();
