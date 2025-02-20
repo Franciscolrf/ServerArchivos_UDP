@@ -72,6 +72,7 @@ public class ClientHandler implements Runnable {
                         packetData, packetData.length,
                         clientAddress, clientPort
                 );
+
                 socket.send(sendPacket);
                 System.out.println(" Enviado fragmento #" + packetNumber + " (" + length + " bytes)");
 
@@ -86,7 +87,8 @@ public class ClientHandler implements Runnable {
                     if (!ackResponse.equals("ACK-" + packetNumber)) {
                         System.out.println(" ACK incorrecto: " + ackResponse
                                            + " (se reenvía fragmento #" + packetNumber + ")");
-                        // Reintenta el envío del mismo fragmento
+
+                
                         continue;
                     }
                 } catch (SocketTimeoutException e) {
@@ -110,7 +112,7 @@ public class ClientHandler implements Runnable {
         } catch (IOException e) {
             e.printStackTrace();
         } finally {
-            // Cerrar el socket efímero al finalizar
+        
             socket.close();
         }
     }
