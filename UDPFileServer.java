@@ -13,7 +13,7 @@ public class UDPFileServer {
         // Creamos un pool de hilos que crezca según la demanda
         ExecutorService executor = Executors.newCachedThreadPool();
 
-        try (DatagramSocket mainSocket = new DatagramSocket(SERVER_PORT)) {
+        try (DatagramSocket mainSocket = new DatagramSocket(5005, InetAddress.getByName("0.0.0.0"))) {
             System.out.println("Servidor UDP escuchando en el puerto " + SERVER_PORT);
 
             while (true) {
